@@ -178,3 +178,82 @@ def transform_targets(y_train, anchors, anchor_masks, size):
         grid_size *= 2
 
     return tuple(y_outs)
+
+
+
+weightsyolov3 = 'yolov3.weights' # path to weights file
+weights= 'checkpoints/yolov3.tf' # path to checkpoints file
+size= 416             #resize images to\
+checkpoints = 'checkpoints/yolov3.tf'
+num_classes = 80      # number of classes in the model
+
+YOLO_V3_LAYERS = [
+    'yolo_darknet',
+    'yolo_conv_0',
+    'yolo_output_0',
+    'yolo_conv_1',
+    'yolo_output_1',
+    'yolo_conv_2',
+    'yolo_output_2',
+]
+
+def load_darknet_weights(model, weights_file):
+    wf = open(weights_file, 'rb')
+    major, minor, revision, seen, _ = np.fromfile(wf, dtype=np.int32, count=5)
+    layers = YOLO_V3_LAYERS
+
+    for layer_name in layers:
+        sub_model = model.get_layer(layer_name)
+        for i, layer in enumerate(sub_model.layers):
+            if not layer.name.startswith('conv2d'):
+                continue
+            batch_norm = None
+            if i + 1 < len(sub_model.layers) and \
+              sub_model.layers[i + 1].name.startswith('batch_norm'):
+                batch_norm = sub_model.layers[i + 1]
+
+            logging.info("{}/{} {}".format(
+                sub_model.name, layer.name, 'bn' if batch_norm else 'bias'))
+
+            filters = layer.filters
+            size = layer.kernel_size[0]
+            in_dim = layer.input_shape[-1]
+
+            if batch_norm is None:
+                conv_bias = np.fromfile(wf, dtype=np.float32, count=filters)
+            else:
+                bn_weights = np.fromfile(
+                    wf, dtype=np.float32, count=4 * filters)
+
+                bn_weights = bn_weights.reshape((4, filters))[[1, 0, 2, 3]]
+
+            conv_shape = (filters, in_dim, size, size)
+            conv_weights = np.fromfile(
+                wf, dtype=np.float32, count=np.product(conv_shape))
+
+            conv_weights = conv_weights.reshape(
+                conv_shape).transpose([2, 3, 1, 0])
+
+            if batch_norm is None:
+                layer.set_weights([conv_weights, conv_bias])
+            else:
+                layer.set_weights([conv_weights])
+                batch_norm.set_weights(bn_weights)
+
+    assert len(wf.read()) == 0, 'failed to read weigts'
+    wf.close()
+
+def load_fake_dataset():
+    x_train = tf.image.decode_jpeg(
+        open('girl.png', 'rb').read(), channels=3)
+    x_train = tf.expand_dims(x_train, axis=0)
+
+    labels = [
+        [0.18494931, 0.03049111, 0.9435849,  0.96302897, 0],
+        [0.01586703, 0.35938117, 0.17582396, 0.6069674, 56],
+        [0.09158827, 0.48252046, 0.26967454, 0.6403017, 67]
+    ] + [[0, 0, 0, 0, 0]] * 5
+    y_train = tf.convert_to_tensor(labels, tf.float32)
+    y_train = tf.expand_dims(y_train, axis=0)
+
+    return tf.data.Dataset.from_tensor_slices((x_train, y_train))

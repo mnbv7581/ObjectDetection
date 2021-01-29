@@ -20,7 +20,7 @@ def grad(model,image,anchors,y_true,classes=80, ignore_thresh=0.5):
 
     return pred_loss, tape.gradient(tf.reduce_sum(pred_loss), model.trainable_variables)
 
-def train(epochs, model, train_dataset, val_dataset, steps_per_epoch_train, steps_per_epoch_val, train_name = 'train'):
+def train(epochs, model, train_dataset, val_dataset, train_name = 'train'):
     '''
     Train YOLO model for n epochs.
     Eval loss on training and validation dataset.
@@ -47,8 +47,6 @@ def train(epochs, model, train_dataset, val_dataset, steps_per_epoch_train, step
     - loss history : [train_loss_history, val_loss_history] : list of average loss for each epoch.
     '''
     num_epochs = epochs
-    steps_per_epoch_train = steps_per_epoch_train
-    steps_per_epoch_val = steps_per_epoch_val
     train_loss_history = []
     val_loss_history = []
     best_val_loss = 1e6
@@ -74,5 +72,5 @@ def train(epochs, model, train_dataset, val_dataset, steps_per_epoch_train, step
         tf.summary.scalar('loss', avg_loss, epoch)
 
         logging.info("Epoch : {}, train_loss : {}".format(
-                epoch, avg_loss))1
+                epoch, avg_loss))
 
