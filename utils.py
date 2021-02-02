@@ -1,10 +1,25 @@
 import cv2
 import numpy as np
 import tensorflow as tf
-
+import time
 
 yolo_iou_threshold   = 0.6 # iou threshold
 yolo_score_threshold = 0.6 # score threshold
+
+yolo_anchors = np.array([(10, 13), (16, 30), (33, 23), (30, 61), (62, 45),(59, 119), (116, 90), (156, 198), (373, 326)], np.float32) / 416
+yolo_anchor_masks = np.array([[6, 7, 8], [3, 4, 5], [0, 1, 2]])
+
+class_names =  ["person", "bicycle", "car", "motorbike", "aeroplane", "bus", "train", "truck",
+    "boat", "traffic light", "fire hydrant", "stop sign", "parking meter", "bench",
+    "bird", "cat", "dog", "horse", "sheep", "cow", "elephant", "bear", "zebra", "giraffe",
+    "backpack", "umbrella", "handbag", "tie", "suitcase", "frisbee", "skis", "snowboard",
+    "sports ball", "kite", "baseball bat", "baseball glove", "skateboard", "surfboard",
+    "tennis racket", "bottle", "wine glass", "cup", "fork", "knife", "spoon", "bowl",
+    "banana","apple", "sandwich", "orange", "broccoli", "carrot", "hot dog", "pizza", "donut",
+    "cake","chair", "sofa", "pottedplant", "bed", "diningtable", "toilet", "tvmonitor", "laptop",
+    "mouse","remote", "keyboard", "cell phone", "microwave", "oven", "toaster", "sink",
+    "refrigerator","book", "clock", "vase", "scissors", "teddy bear", "hair drier", "toothbrush"]
+
 
 def interval_overlap(interval_1, interval_2):
     x1, x2 = interval_1
@@ -176,7 +191,6 @@ def transform_targets(y_train, anchors, anchor_masks, size):
         y_outs.append(transform_targets_for_output(
             y_train, grid_size, anchor_idxs))
         grid_size *= 2
-
     return tuple(y_outs)
 
 
@@ -247,13 +261,13 @@ def load_fake_dataset():
     x_train = tf.image.decode_jpeg(
         open('girl.png', 'rb').read(), channels=3)
     x_train = tf.expand_dims(x_train, axis=0)
-
+    
     labels = [
         [0.18494931, 0.03049111, 0.9435849,  0.96302897, 0],
         [0.01586703, 0.35938117, 0.17582396, 0.6069674, 56],
         [0.09158827, 0.48252046, 0.26967454, 0.6403017, 67]
     ] + [[0, 0, 0, 0, 0]] * 5
+
     y_train = tf.convert_to_tensor(labels, tf.float32)
     y_train = tf.expand_dims(y_train, axis=0)
-
     return tf.data.Dataset.from_tensor_slices((x_train, y_train))

@@ -3,11 +3,10 @@ import json
 import numpy as np
 import tqdm
 from PIL import Image
+import matplotlib.pyplot as plt
 import tensorflow as tf
 from tensorflow.keras.utils import Sequence
-import matplotlib.pyplot as plt
-
-
+from utils import transform_targets, preprocess_image , yolo_anchors, yolo_anchor_masks
 class COCODataset(Sequence):
 
     IMAGE_WIDTH = 416
@@ -35,7 +34,13 @@ class COCODataset(Sequence):
 
             self.instances_max = 0
             for annotation in tqdm.tqdm(json_info["annotations"]):
-                bbox = np.asarray(annotation["bbox"]+[annotation["category_id"]]) 
+                stx = annotation["bbox"][0]
+                sty = annotation["bbox"][1]
+                w = annotation["bbox"][2]
+                h = annotation["bbox"][3]
+                endx = w - stx
+                endy = h - sty
+                bbox = np.asarray([stx,sty,endx,endy]+[annotation["category_id"]]) 
                 self.annos[annotation["image_id"]].append(bbox)
                 if self.instances_max < len(self.annos[annotation["image_id"]]):
                     self.instances_max = len(self.annos[annotation["image_id"]])
@@ -46,16 +51,23 @@ class COCODataset(Sequence):
         batch_images = np.zeros((self.batch_size,self.IMAGE_HEIGHT,self.IMAGE_WIDTH,self.IMAGE_CHANNEL))
         batch_annotations = np.zeros((self.batch_size,self.instances_max,5))
         for n, image_id in enumerate(image_ids):
-            image = Image.open(self.imgs[image_id]).resize((self.IMAGE_WIDTH,self.IMAGE_HEIGHT))
-            image = np.array(image) / 255.0
-            image.reshape(image.shape[0], image.shape[1], self.IMAGE_CHANNEL)
+            image = tf.image.decode_jpeg(open(self.imgs[image_id], 'rb').read(), channels=3)
+            image = preprocess_image(image,self.IMAGE_WIDTH)
+            #image = tf.expand_dims(image, axis=0)
+            # image = Image.open(self.imgs[image_id]).resize((self.IMAGE_WIDTH,self.IMAGE_HEIGHT))
+            # image = np.array(image) / 255.0
+            #image.reshape(image.shape[0], image.shape[1], self.IMAGE_CHANNEL)
             batch_images[n, :, :, :] = image
 
         for n ,image_id in enumerate(image_ids):
             for m, anno in enumerate(self.annos[image_id]):
                 batch_annotations[n,m,:] = anno
-                
+
+       
+        batch_images        =   tf.convert_to_tensor(batch_images, tf.float32)         
+        batch_annotations   =   tf.convert_to_tensor(batch_annotations, tf.float32)            
+        batch_annotations   =   transform_targets(batch_annotations, yolo_anchors, yolo_anchor_masks,self.IMAGE_WIDTH) 
         return batch_images, batch_annotations
     
     def __len__(self):
-        return len(self.imgs)/self.batch_size
+        return int(len(self.imgs)/self.batch_size)
