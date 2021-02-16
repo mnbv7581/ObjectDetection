@@ -1,7 +1,7 @@
 import tensorflow as tf
 from tensorflow.keras.layers import Input, Add
-from tensorflow.keras.layers import Input, Conv2D, ZeroPadding2D, LeakyReLU
-from layers.batch_nomalize import BatchNormalization
+from tensorflow.keras.layers import Input, Conv2D, ZeroPadding2D, LeakyReLU, BatchNormalization
+#from layers.batch_nomalize import BatchNormalization
 from tensorflow.keras.regularizers import l2
 from itertools import repeat
 

@@ -1,13 +1,13 @@
 import tensorflow as tf
 from utils import yolo_boxes
-from utils import intersectionOverUnion, broadcast_iou
+from utils import broadcast_iou
 from tensorflow.keras.losses import binary_crossentropy
 from tensorflow.keras.losses import sparse_categorical_crossentropy
 
 
 def YoloLoss(anchors, classes=80, ignore_thresh=0.5):
     def yolo_loss(y_true, y_pred):
-        
+
         pred_box, pred_obj, pred_class, pred_xywh = yolo_boxes(
             y_pred, anchors, classes)
         pred_xy = pred_xywh[..., 0:2]
@@ -52,6 +52,7 @@ def YoloLoss(anchors, classes=80, ignore_thresh=0.5):
         wh_loss = tf.reduce_sum(wh_loss, axis=(1, 2, 3))
         obj_loss = tf.reduce_sum(obj_loss, axis=(1, 2, 3))
         class_loss = tf.reduce_sum(class_loss, axis=(1, 2, 3))
-
+        #tf.print(obj_loss)
+        #tf.print(class_loss)
         return xy_loss + wh_loss + obj_loss + class_loss
     return yolo_loss

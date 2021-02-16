@@ -2,11 +2,11 @@ import cv2
 import numpy as np
 import tensorflow as tf
 import time
-
+from absl import logging
 yolo_iou_threshold   = 0.6 # iou threshold
 yolo_score_threshold = 0.6 # score threshold
 
-yolo_anchors = np.array([(10, 13), (16, 30), (33, 23), (30, 61), (62, 45),(59, 119), (116, 90), (156, 198), (373, 326)], np.float32) / 416
+yolo_anchors = np.array([(10, 13), (16, 30), (33, 23), (30, 61), (62, 45),(59, 119), (116, 90), (156, 198), (373, 326)], np.float32) / 416.
 yolo_anchor_masks = np.array([[6, 7, 8], [3, 4, 5], [0, 1, 2]])
 
 class_names =  ["person", "bicycle", "car", "motorbike", "aeroplane", "bus", "train", "truck",
@@ -105,7 +105,8 @@ def nonMaximumSuppression(outputs, anchors, masks, classes):
 
 
 def yolo_boxes(pred, anchors, classes):
-    grid_size = tf.shape(pred)[1]
+    #grid_size = tf.shape(pred)[1]
+    grid_size = tf.shape(pred)[1:3]
     box_xy, box_wh, score, class_probs = tf.split(pred, (2, 2, 1, classes), axis=-1)
 
     box_xy = tf.sigmoid(box_xy)
@@ -113,7 +114,8 @@ def yolo_boxes(pred, anchors, classes):
     class_probs = tf.sigmoid(class_probs)
     pred_box = tf.concat((box_xy, box_wh), axis=-1)
 
-    grid = tf.meshgrid(tf.range(grid_size), tf.range(grid_size))
+    #grid = tf.meshgrid(tf.range(grid_size), tf.range(grid_size))
+    grid = tf.meshgrid(tf.range(grid_size[1]), tf.range(grid_size[0]))
     grid = tf.expand_dims(tf.stack(grid, axis=-1), axis=2)
 
     box_xy = (box_xy + tf.cast(grid, tf.float32)) /  tf.cast(grid_size, tf.float32)
@@ -125,8 +127,7 @@ def yolo_boxes(pred, anchors, classes):
     return bbox, score, class_probs, pred_box
 
 def preprocess_image(x_train, size):
-    return (tf.image.resize(x_train, (size, size))) / 255
-
+    return (tf.image.resize(x_train, (size, size))) / 255.
 
 @tf.function
 def transform_targets_for_output(y_true, grid_size, anchor_idxs):
@@ -135,8 +136,7 @@ def transform_targets_for_output(y_true, grid_size, anchor_idxs):
 
     # y_true_out: (N, grid, grid, anchors, [x1, y1, x2, y2, obj, class])
     y_true_out = tf.zeros(
-        (N, grid_size, grid_size, tf.shape(anchor_idxs)[0], 6))
-
+        (N, grid_size, grid_size, tf.shape(anchor_idxs)[0], 6),dtype=tf.float32)
     anchor_idxs = tf.cast(anchor_idxs, tf.int32)
 
     indexes = tf.TensorArray(tf.int32, 1, dynamic_size=True)
@@ -163,11 +163,11 @@ def transform_targets_for_output(y_true, grid_size, anchor_idxs):
                     idx, [box[0], box[1], box[2], box[3], 1, y_true[i][j][4]])
                 idx += 1
 
-    # tf.print(indexes.stack())
-    # tf.print(updates.stack())
+    #tf.print(indexes.stack())
+    #tf.print(updates.stack())
 
     return tf.tensor_scatter_nd_update(
-        y_true_out, indexes.stack(), updates.stack())
+         y_true_out, indexes.stack(), updates.stack())
 
 def transform_targets(y_train, anchors, anchor_masks, size):
     y_outs = []
@@ -182,17 +182,18 @@ def transform_targets(y_train, anchors, anchor_masks, size):
     intersection = tf.minimum(box_wh[..., 0], anchors[..., 0]) * \
         tf.minimum(box_wh[..., 1], anchors[..., 1])
     iou = intersection / (box_area + anchor_area - intersection)
+    
     anchor_idx = tf.cast(tf.argmax(iou, axis=-1), tf.float32)
     anchor_idx = tf.expand_dims(anchor_idx, axis=-1)
 
     y_train = tf.concat([y_train, anchor_idx], axis=-1)
 
+    
     for anchor_idxs in anchor_masks:
-        y_outs.append(transform_targets_for_output(
-            y_train, grid_size, anchor_idxs))
+        y_out = transform_targets_for_output(y_train, grid_size, anchor_idxs)
+        y_outs.append(y_out)
         grid_size *= 2
     return tuple(y_outs)
-
 
 
 weightsyolov3 = 'yolov3.weights' # path to weights file

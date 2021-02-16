@@ -12,7 +12,6 @@ yolo_anchor_masks = np.array([[6, 7, 8], [3, 4, 5], [0, 1, 2]])
 def YoloV3(size=None, channels=3, anchors=yolo_anchors,
             masks=yolo_anchor_masks, classes=80, training=False):
     x = inputs = Input([size, size, channels])
-
     x_36, x_61, x = Darknet(name='yolo_darknet')(x)
 
     x = YoloConv(512, name='yolo_conv_0')(x)
