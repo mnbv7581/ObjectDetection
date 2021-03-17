@@ -7,7 +7,7 @@ from model.Yolov3 import YoloV3
 #from utils import class_names ,  transform_targets, preprocess_image , yolo_anchors, yolo_anchor_masks , load_fake_dataset
 from utils import class_names ,load_darknet_weights
 from training.train import train
-from training.train import grad
+from training.evaluation import COCOEval
 import time
 import argparse
 
@@ -22,6 +22,9 @@ def main(args):
     epochs = args.epochs
     batch_size = args.batch_size
     input_size = args.input_size
+    pretrained = args.pretrained
+    dataset_name = args.dataset_name
+
     gpus = tf.config.experimental.list_physical_devices('GPU')
     if gpus:
         try:
@@ -39,16 +42,17 @@ def main(args):
         
        train_dataset = COCODataset(data_dir,image_dir,annotation,batch_size)
        val_dataset = COCODataset(data_dir,val_image_dir,val_annotation,batch_size)
-
-       categories_len = len(train_dataset.categories.values())
+       
+       categories_len = len(val_dataset.categories.values())
        yolo_model = YoloV3(size=input_size,classes=categories_len,training=True)
 
-       load_darknet_weights(yolo_model, weightsyolov3)
-       #yolo_model.save_weights(checkpoints)
-
-       train(epochs,yolo_model,train_dataset,val_dataset, classes = categories_len)
+       if pretrained:
+          yolo_model.load_weights("checkpoints/yolov3.tf")
+          
+       train(epochs,yolo_model,train_dataset,val_dataset, classes = categories_len,dataset_name=dataset_name)
     else:
-        pass
+        val_dataset = COCODataset(data_dir,val_image_dir,val_annotation,batch_size)
+        eval = COCOEval("result.json",val_dataset)
 
 if __name__=="__main__":
     #load_fake_dataset()
@@ -66,5 +70,8 @@ if __name__=="__main__":
     parser.add_argument('--cutmix', action='store_true')
     parser.add_argument('--model_path', default = "")
     parser.add_argument('--train_mode', action='store_true')
+    parser.add_argument('--pretrained', action='store_true')
+    parser.add_argument('--dataset_name',default="coco")
+
     main(parser.parse_args())
 

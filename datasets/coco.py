@@ -26,19 +26,19 @@ class COCODataset(Sequence):
         self.annos = dict()
         self.categories = dict()
         with open(os.path.join(dataroot,self.jsonfile), "r") as json_file:
-            json_info = json.load(json_file)
+            self.json_info = json.load(json_file)
 
-            for category in tqdm.tqdm(json_info["categories"]):
+            for category in tqdm.tqdm(self.json_info["categories"]):
                 self.categories[category["name"]] = category["id"]
 
-            for img in tqdm.tqdm(json_info["images"]):
+            for img in tqdm.tqdm(self.json_info["images"]):
                 self.imgs[img["id"]] = os.path.join(imagedir,img["file_name"])
                 self.imgs_info[img["id"]] = {"width":img["width"],"height":img["height"]}
                 self.annos[img["id"]] = []
 
             self.instances_max = 0
             #for annotation in tqdm.tqdm(json_info["annotations"]):
-            for annotation in json_info["annotations"]:
+            for annotation in self.json_info["annotations"]:
                 img_width  =  self.imgs_info[annotation["image_id"]]["width"]
                 img_height  =  self.imgs_info[annotation["image_id"]]["height"]
 
@@ -52,7 +52,7 @@ class COCODataset(Sequence):
                 # endx = endx/float(img_width)
                 # endy = endy/float(img_height)
 
-                bbox = np.asarray([stx,sty,endx,endy]+[int(annotation["category_id"])],dtype=np.float32)
+                bbox = np.asarray([stx,sty,endx,endy]+[int(annotation["category_id"]) - 1],dtype=np.float32)
                 self.annos[annotation["image_id"]].append(bbox)
                 if self.instances_max < len(self.annos[annotation["image_id"]]):
                     self.instances_max = len(self.annos[annotation["image_id"]])
@@ -80,7 +80,14 @@ class COCODataset(Sequence):
         #     plt.imshow(images_with_boxes[i,:,:,:])
         #     plt.show()
         batch_annotations   =   transform_targets(batch_annotations, yolo_anchors, yolo_anchor_masks,self.IMAGE_WIDTH)
-        return batch_images, batch_annotations
+        return batch_images, batch_annotations, image_ids
     
     def __len__(self):
         return int(len(self.imgs)/self.batch_size)
+
+    def getCOCOJson(self):
+        return self.json_info
+    def getCOCOImageInfo(self):
+        return self.imgs_info
+    def getCOCOAnnotationPath(self):
+        return os.path.join(self.dataroot,self.jsonfile)

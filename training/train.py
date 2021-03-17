@@ -1,34 +1,32 @@
 import os
 import tensorflow as tf
 import numpy as np
-import time
+import tqdm
 from loss.loss import YoloLoss
 #from absl import logging
 import logging
-
+from training.evaluation import COCOEval
+from model.Yolov3 import YoloV3
 yolo_anchor_masks = np.array([[6, 7, 8], [3, 4, 5], [0, 1, 2]])
 yolo_anchors = np.array([(10, 13), (16, 30), (33, 23), (30, 61), (62, 45),(59, 119), (116, 90), (156, 198), (373, 326)], np.float32) / 416
 
 @tf.function
-def grad(model,image,anchors,y_true,losses,optimizer, ignore_thresh=0.5):
+def grad(model,image,y_true,losses,optimizer):
     pred_loss = []
     with tf.GradientTape() as tape:
         pred = model(image,training=True)
-        #regularization_loss = tf.reduce_sum(model.losses)
+        regularization_loss = tf.reduce_sum(model.losses)
         for i, loss in enumerate(losses):
             pred_loss.append(loss(y_true[i], pred[i]))
-        total_loss = tf.reduce_sum(pred_loss)
+        total_loss = tf.reduce_sum(pred_loss) + regularization_loss
     grads = tape.gradient(total_loss, model.trainable_variables)
     optimizer.apply_gradients(zip(grads, model.trainable_variables))
     return total_loss
-def eval(model,image,anchors,y_true,losses,ignore_thresh=0.5):
-    pred_loss = []
-    pred = model(image,training=True)
-    regularization_loss = tf.reduce_sum(model.losses)
-    for i, loss in enumerate(losses):
-        pred_loss.append(loss(y_true[i], pred[i]))
-    total_loss = tf.reduce_sum(pred_loss)
-    return total_loss
+
+def eval(model,image):
+   
+    boxes, scores, classes, num = model(image,training=False)
+    return boxes, scores, classes, num
 
 def build_logging():
     # 로그 생성
@@ -50,7 +48,7 @@ def build_logging():
     return logger
 
 
-def train(epochs, model, train_dataset, val_dataset, classes = 80 ):
+def train(epochs, model, train_dataset, val_dataset, classes = 80, dataset_name=None ):
     '''
     Parameters
     ----------
@@ -59,7 +57,7 @@ def train(epochs, model, train_dataset, val_dataset, classes = 80 ):
     - train_dataset : YOLO ground truth and image generator from training dataset.
     - val_dataset : YOLO ground truth and image generator from validation dataset.
     - classes : Number of Classes
-
+    - dataset_name : dataset name
     Returns
     -------
     '''
@@ -79,22 +77,15 @@ def train(epochs, model, train_dataset, val_dataset, classes = 80 ):
     data_len = len(train_dataset)
     logging = build_logging()
 
-    # for idx in range(100):
-    #     train_x, train_y = train_dataset[idx]
-    #     total_loss = grad(model,train_x,yolo_anchors,train_y,losses,optimizer)
+    evaluation = COCOEval("result.json",val_dataset)
 
-    #     logging.info("Iter : {}/{}, losses : {}".format(
-    #                 idx,
-    #                 data_len,
-    #                 total_loss))
-    
     for epoch in range(num_epochs):
         epoch_loss = []
         epoch_val_loss = []
         epoch_val_sub_loss = []
         logging.info("{} Epoch Training Start".format(epoch))
-        for batch_idx, (train_x,train_y) in enumerate(train_dataset):
-            total_loss = grad(model,train_x,yolo_anchors,train_y,losses,optimizer)
+        for batch_idx, (train_x,train_y,image_ids) in enumerate(train_dataset):
+            total_loss = grad(model,train_x,train_y,losses,optimizer)
             
             epoch_loss.append(total_loss)
             metrics.update_state(total_loss)
@@ -107,35 +98,31 @@ def train(epochs, model, train_dataset, val_dataset, classes = 80 ):
                     avg_loss))
             
         train_loss_history.append(avg_loss)
-        #tf.summary.scalar('loss', avg_loss, epoch)
 
         logging.info("Epoch : {}, train_loss : {}".format(
                 epoch, avg_loss))
 
-        logging.info("{} Epoch Evaluation Start".format(epoch))
-        for batch_idx, (val_x,val_y) in enumerate(val_dataset):
-            total_loss = eval(model,val_x,yolo_anchors,val_y,losses,optimizer)  
-            val_metrics.update_state(total_loss)
-            val_avg_loss = val_metrics.result().numpy()
+        # logging.info("{} Epoch Evaluation Start".format(epoch))
+        # model.save_weights('checkpoint/checkpoint_{}ep.tf'.format(epoch))
 
-            if (batch_idx % 50) == 0 :
-                logging.info("Iter : {}/{}, losses : {}".format(
-                    batch_idx,
-                    data_len,
-                    val_avg_loss))
+        eval_model=YoloV3(classes=classes)
+        eval_model.load_weights('checkpoints/yolov3.tf')
 
-        logging.info("epoch: {} , val: {}".format(
-                epoch,
-                val_metrics.result().numpy()))
-        
-        val_loss_history.append(val_avg_loss)
+        for batch_idx, (val_x,val_y,image_ids) in tqdm.tqdm(enumerate(val_dataset),total=len(val_dataset)):
+            val_x,val_y,image_ids = val_dataset[batch_idx]
+            #boxes, scores, classes, num = eval(eval_model,val_x)  
+            boxes, scores, classes, num = eval(model,val_x)  
 
 
-        if best_val_loss > val_avg_loss:
-            logging.info("best model save")
-            model.save_weights('checkpoint/checkpoint_best.tf')
-            
-        model.save_weights('checkpoint/checkpoint_{}ep.tf'.format(epoch))
+        if dataset_name == "coco" :
+            evaluation.append(image_ids,classes,boxes,scores,num)
+
+        evaluation.save()
+        evaluation.Calculating()
+
+        # if best_val_loss > val_avg_loss:
+        #     logging.info("best model save")
+        #     model.save_weights('checkpoint/checkpoint_best.tf')
+
         metrics.reset_states()
-        val_metrics.reset_states()
         
