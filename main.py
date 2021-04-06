@@ -4,6 +4,7 @@ import tensorflow as tf
 from datasets.coco import COCODataset
 from absl import logging
 from model.Yolov3 import YoloV3
+from model.Yolov4 import YoloV4
 #from utils import class_names ,  transform_targets, preprocess_image , yolo_anchors, yolo_anchor_masks , load_fake_dataset
 from utils import class_names ,load_darknet_weights
 from training.train import train
@@ -24,7 +25,7 @@ def main(args):
     input_size = args.input_size
     pretrained = args.pretrained
     dataset_name = args.dataset_name
-
+    model_name = args.model_name
     gpus = tf.config.experimental.list_physical_devices('GPU')
     if gpus:
         try:
@@ -44,10 +45,15 @@ def main(args):
        val_dataset = COCODataset(data_dir,val_image_dir,val_annotation,batch_size)
        
        categories_len = len(val_dataset.categories.values())
-       yolo_model = YoloV3(size=input_size,classes=categories_len,training=True)
+       
+       if model_name=="yolov3":
+           yolo_model = YoloV3(size=input_size,classes=categories_len,training=True)
 
-       if pretrained:
-          yolo_model.load_weights("checkpoints/yolov3.tf")
+           if pretrained:
+              yolo_model.load_weights("checkpoints/yolov3.tf")
+
+       elif model_name=="yolov4":
+           yolo_model = YoloV4(size=input_size,classes=categories_len,training=True)
           
        train(epochs,yolo_model,train_dataset,val_dataset, classes = categories_len,dataset_name=dataset_name)
     else:
@@ -71,6 +77,7 @@ if __name__=="__main__":
     parser.add_argument('--model_path', default = "")
     parser.add_argument('--train_mode', action='store_true')
     parser.add_argument('--pretrained', action='store_true')
+    parser.add_argument('--model_name',default="yolov3")
     parser.add_argument('--dataset_name',default="coco")
 
     main(parser.parse_args())

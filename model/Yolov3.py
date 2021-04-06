@@ -4,7 +4,7 @@ from tensorflow.keras import Model
 from tensorflow.keras.layers import Input, Lambda
 from utils import yolo_boxes, nonMaximumSuppression
 from layers.Darknet import Darknet
-from layers.Yolov3 import YoloConv, YoloOutput
+from layers.Yolo import YoloConv, YoloOutput
 
 yolo_anchors = np.array([(10, 13), (16, 30), (33, 23), (30, 61), (62, 45),(59, 119), (116, 90), (156, 198), (373, 326)], np.float32) / 416
 yolo_anchor_masks = np.array([[6, 7, 8], [3, 4, 5], [0, 1, 2]])
@@ -16,13 +16,16 @@ def YoloV3(size=None, channels=3, anchors=yolo_anchors,
 
     x = YoloConv(512, name='yolo_conv_0')(x)
     output_0 = YoloOutput(512, len(masks[0]), classes, name='yolo_output_0')(x)
-
+    
+    print(x)
     x = YoloConv(256, name='yolo_conv_1')((x, x_61))
     output_1 = YoloOutput(256, len(masks[1]), classes, name='yolo_output_1')(x)
 
+    print(x)
     x = YoloConv(128, name='yolo_conv_2')((x, x_36))
     output_2 = YoloOutput(128, len(masks[2]), classes, name='yolo_output_2')(x)
 
+    print(x)
     if training:
         return Model(inputs, (output_0, output_1, output_2), name='yolov3')
 
