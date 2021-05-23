@@ -6,7 +6,7 @@ from absl import logging
 from model.Yolov3 import YoloV3
 from utils import preprocess_image, draw_outputs
 
-weightsyolov3 = 'yolov3.weights' # path to weights file
+weights_yolov3 = 'yolov3.weights' # path to weights file
 weights= 'checkpoints/yolov3.tf' # path to checkpoints file
 size= 416             #resize images to\
 checkpoints = 'checkpoints/yolov3.tf'
@@ -84,9 +84,9 @@ def load_darknet_weights(model, weights_file):
 if __name__=="__main__":
 
     yolo = YoloV3(classes=num_classes)
-    load_darknet_weights(yolo, weightsyolov3)
+    load_darknet_weights(yolo, weights_yolov3)
     yolo.save_weights(checkpoints)
-    image = 'test.jpg'     # path to input image
+    image = 'soccer-1457988_1280.jpg'     # path to input image
 
     img = tf.image.decode_image(open(image, 'rb').read(), channels=3)
     img = tf.expand_dims(img, 0)
