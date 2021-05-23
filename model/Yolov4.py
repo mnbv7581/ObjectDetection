@@ -4,7 +4,7 @@ import tensorflow as tf
 from tensorflow.keras import Model
 from tensorflow.keras.layers import Input, Lambda
 from utils import yolo_boxes, nonMaximumSuppression
-from layers.Darknet import CSPDarknet53, DarknetConv
+from layers.Darknet import CSPDarknet53, DarknetConv, Upsample
 from layers.Yolo import YoloConv, YoloOutput
 
 yolo_anchors = np.array([(10, 13), (16, 30), (33, 23), (30, 61), (62, 45),(59, 119), (116, 90), (156, 198), (373, 326)], np.float32) / 416
@@ -22,27 +22,35 @@ def YoloV4(size=None, channels=3, anchors=yolo_anchors,
     # print(route_2) # (26, 26, 512)
     # print(route_1) # (52, 52, 256)
 
+    x = DarknetConv(x,256,1)
+    x = Upsample(x)
     route_2 = DarknetConv(route_2,256,1)
-    x = YoloConv(256, name='yolo_conv_0')((x,route_2)) 
-    route_2 = x
-    
-    route_1 = DarknetConv(route_1,128,1)
-    x = YoloConv(128, name='yolo_conv_1')((x,route_1))
+    x = tf.concat([x, route_2], axis=-1)
+    x = YoloConv(256, name='yolo_conv_0')(x) 
+
+    x = DarknetConv(x,128,1)
+    x = Upsample(x)
+    route_1 = DarknetConv(x,128,1)
+    x = tf.concat([x, route_1], axis=-1)
+    x = YoloConv(128, name='yolo_conv_1')(x) 
+
+    #Yolov4 output 1
     route_1 = x
+    output_0 = YoloOutput(128, len(masks[2]), classes, name='yolo_output_0')(x)
 
-    output_0 = YoloOutput(256, len(masks[0]), classes, name='yolo_output_0')(x)
-    x = DarknetConv(x,256,3)
-
-    x = tf.concat([x,route_1],axis=-1)
-    x = YoloConv(256, name='yolo_conv_2')(x)
+    x = DarknetConv(x,256,3,strides=2)
+    x = tf.concat([x, route_2], axis=-1)
+    x = YoloConv(256, name='yolo_conv_2')(x) 
+    
+    #Yolov4 output 2
     route_2 = x
+    output_1 = YoloOutput(256, len(masks[1]), classes, name='yolo_output_1')(x)
 
+    x = DarknetConv(x,512,3,strides=2)
+    x = tf.concat([x, route], axis=-1)
+    x = YoloConv(512, name='yolo_conv_3')(x) 
 
-    output_1 = YoloOutput(512, len(masks[0]), classes, name='yolo_output_1')(x)
-    x = DarknetConv(x,512,3)
-    x = tf.concat([x,route_2],axis=-1)
-    x = YoloConv(512, name='yolo_conv_3')(x)
-   
+    #Yolov4 output 3
     output_2 = YoloOutput(512, len(masks[0]), classes, name='yolo_output_2')(x)
 
 

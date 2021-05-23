@@ -66,7 +66,7 @@ if __name__=="__main__":
     
     parser.add_argument('--epochs', default = 5, type=int)
     parser.add_argument('--input_size', default = 416, type=int)
-    parser.add_argument('--batch_size', default = 1, type=int)
+    parser.add_argument('--batch_size', default = 4, type=int)
     parser.add_argument('--data_dir',default='E:/dataset/ObjectDetection/annotations/') #coco or voc
     parser.add_argument('--annotation',default='instances_train2017.json')
     parser.add_argument('--image_dir', default='E:/dataset/ObjectDetection/train2017/')

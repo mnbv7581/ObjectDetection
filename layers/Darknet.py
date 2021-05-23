@@ -130,6 +130,9 @@ def CSPDarknet53(name=None):
 
     return tf.keras.Model(inputs, (route_2, route_1, x), name=name)
 
+def Upsample(input_layer):
+    return tf.image.resize(input_layer, (input_layer.shape[1] * 2, input_layer.shape[2] * 2), method='bilinear')
+
 def mish(x):
     return x * tf.math.tanh(tf.math.softplus(x))
     # return tf.keras.layers.Lambda(lambda x: x*tf.tanh(tf.math.log(1+tf.exp(x))))(x)
