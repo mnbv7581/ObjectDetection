@@ -15,7 +15,7 @@
   
 ## Training
 
-  python main.py --data_dir dataset\annotations --image_dir dataset\train2017 --val_image_dir Ddataset\val2017 --train_mode --model_name yolov3
+  python main.py --data_dir dataset\annotations --image_dir dataset\train2017 --val_image_dir dataset\val2017 --train_mode --model_name yolov3
   
 
 
