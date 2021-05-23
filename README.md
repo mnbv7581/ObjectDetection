@@ -6,5 +6,16 @@
 # ObjectDetection
 
 ## introduction
-### It's a object detection project based on Coco Dataset.
+  
+  It's a object detection project based on Coco Dataset.
+  
+## Requirments
+
+  pip install - r requirements.txt
+  
+## Training
+
+  python main.py --data_dir dataset\annotations --image_dir dataset\train2017 --val_image_dir Ddataset\val2017 --train_mode --model_name yolov3
+  
+
 
